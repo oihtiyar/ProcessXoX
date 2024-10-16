@@ -1,92 +1,67 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading;
 
 namespace ProcesXoXApp
 {
     class Program
     {
+        private static string configFilePath = "config.txt"; // Ayarların saklanacağı dosya
+
         static void Main(string[] args)
         {
             Console.WriteLine("ProcesXoX başlıyor!");
 
-            // Debug amaçlı bilgi
-            Console.WriteLine("Girdi: " + string.Join(", ", args));
+            string applicationPath;
+            int affinityValue;
 
-            // Tüm mevcut işlemleri listele
-            Console.WriteLine("Mevcut işlemler:");
-            var processes = Process.GetProcesses().OrderBy(p => p.ProcessName).ToList();
-            for (int i = 0; i < processes.Count; i++)
+            // Eğer config dosyası varsa önceki path ve affinity değerini yükle
+            if (File.Exists(configFilePath))
             {
-                Console.WriteLine($"{i + 1}: {processes[i].ProcessName} (ID: {processes[i].Id})");
-            }
-
-            // Kullanıcıdan işlem ID'sini ya da path'i sormak
-            Console.WriteLine("\nMevcut işlemlerden birini seçmek için ID'sini girin, ya da bir uygulama path'i girin:");
-            string userInput = Console.ReadLine();
-
-            Process selectedProcess = null;
-
-            if (int.TryParse(userInput, out int processIndex) && processIndex > 0 && processIndex <= processes.Count)
-            {
-                // Kullanıcı listeden bir işlem seçti
-                selectedProcess = processes[processIndex - 1];
-            }
-            else if (File.Exists(userInput))
-            {
-                // Kullanıcı bir uygulama path'i girdi
-                Console.WriteLine($"'{userInput}' yolunda uygulama izlenecek.");
-
-                // Path üzerinden uygulama çalıştığında PID bulmak için döngü başlat
-                selectedProcess = MonitorProcessStart(userInput);
+                var config = File.ReadAllLines(configFilePath);
+                applicationPath = config[0];
+                affinityValue = int.Parse(config[1]);
+                Console.WriteLine($"Önceki ayarlar yüklendi: Uygulama: {applicationPath}, Affinity: {affinityValue}");
             }
             else
             {
-                Console.WriteLine("Geçersiz giriş, program sonlandırılıyor.");
-                return;
-            }
+                // Kullanıcıdan path ve affinity ayarlarını al
+                Console.WriteLine("Bir uygulama path'i girin:");
+                applicationPath = Console.ReadLine();
 
-            if (selectedProcess != null)
-            {
-                // İşlem için mevcut CPU affinity'yi göster
-                Console.WriteLine($"Bulunan işlem: {selectedProcess.ProcessName} (ID: {selectedProcess.Id})");
-                Console.WriteLine($"Mevcut Affinity: {selectedProcess.ProcessorAffinity}");
-
-                // Yeni affinity'yi ayarla
-                Console.WriteLine("Yeni CPU Affinity (örneğin, 3 sadece CPU 0 ve 1 için):");
+                // Yeni CPU affinity değerini sorma
+                Console.WriteLine("Uygulama için ayarlanacak CPU Affinity (örneğin, 3 sadece CPU 0 ve 1 için):");
                 string affinityInput = Console.ReadLine();
 
                 // Geçerli bir bitmask kontrolü yap
-                if (int.TryParse(affinityInput, out int affinityValue) && affinityValue >= 0)
-                {
-                    selectedProcess.ProcessorAffinity = (IntPtr)affinityValue;
-                    Console.WriteLine($"Yeni CPU Affinity ayarlandı: {affinityValue}");
-                }
-                else
+                if (!int.TryParse(affinityInput, out affinityValue) || affinityValue < 0)
                 {
                     Console.WriteLine("Geçersiz Affinity değeri girdiniz. Lütfen geçerli bir bitmask değeri girin.");
+                    return;
                 }
+
+                // Yeni ayarları dosyaya kaydet
+                File.WriteAllLines(configFilePath, new string[] { applicationPath, affinityValue.ToString() });
             }
-            else
-            {
-                Console.WriteLine("İşlem bulunamadı veya başlatılamadı.");
-            }
+
+            // Path'teki uygulama başlatıldığında affinity ayarını yapmak için izlemeye başla
+            MonitorProcessAndSetAffinity(applicationPath, affinityValue);
 
             // Programın sona ermesini beklemek için kullanıcıdan girdi bekle
             Console.WriteLine("Program sona ermek üzere, devam etmek için bir tuşa basın...");
             Console.ReadLine(); // Kullanıcıdan girdi bekle
         }
 
-        // Path'den bir uygulama başlarsa onu izleyip Process ID'sini bulacak metod
-        static Process MonitorProcessStart(string applicationPath)
+        // Uygulama başlatıldığında affinity ayarlayacak metod
+        static void MonitorProcessAndSetAffinity(string applicationPath, int affinityValue)
         {
-            Process process = null;
-            Console.WriteLine("Uygulama başlatılana kadar bekleniyor...");
+            Console.WriteLine($"'{applicationPath}' yolundaki uygulama izleniyor...");
 
-            while (process == null)
+            while (true)
             {
+                Process process = null;
+
                 // Path'e uygun process var mı diye sürekli kontrol
                 var matchingProcesses = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(applicationPath));
 
@@ -94,14 +69,21 @@ namespace ProcesXoXApp
                 {
                     process = matchingProcesses[0]; // İlk bulduğu prosesi al
                     Console.WriteLine($"Uygulama bulundu: {process.ProcessName} (ID: {process.Id})");
-                }
-                else
-                {
-                    Thread.Sleep(2000); // 2 saniye bekle ve tekrar dene
-                }
-            }
 
-            return process;
+                    // Affinity ayarla
+                    try
+                    {
+                        process.ProcessorAffinity = (IntPtr)affinityValue;
+                        Console.WriteLine($"Affinity başarıyla ayarlandı: {affinityValue}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Affinity ayarlanırken bir hata oluştu: {ex.Message}");
+                    }
+                }
+
+                Thread.Sleep(2000); // 2 saniye bekle ve tekrar dene
+            }
         }
     }
 }
