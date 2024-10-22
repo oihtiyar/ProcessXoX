@@ -1,7 +1,16 @@
 # ProcessXoX
 
-With the application, you can assign CPU by following the path on Windows operating systems.
+Uygulamayı geliştirmekteki motivaston Windows işletim sistemleri üzerinde path izleme yaparak CPU ataması sağlamak. Benim durumumda 7zip uygulamasına belirli bir sayıda CPU atamam gerekiyordu. Mevcutta 7zip uygulaması çalıştığında sunucu üzerindeki tüm kaynakları sömürerek CPU kullanım oranını %100 seviyesine çıkarıyordu. Her seferinde girip el ile işlem yapmaktansa uygulamayı monitör edip atama yapabilecek bir uygulama yazarak sorunuma bu şekilde çözüm buldum.
 
-Uygulama ile Windows işletim sistemleri üzerinde path izleme yaparak CPU atayabilirsiniz.
+/////////////////////
 
+The motivation for developing the application is to provide CPU assignment by path tracing on Windows operating systems. In my case I needed to assign a certain number of CPUs to the 7zip application. Currently, when the 7zip application runs, it consumes all resources on the server and increases the CPU usage rate to 100%. I found a solution to my problem this way.
 
+/////////////////////
+
+Uygulama kullanım adımları;
+
+İlgili v1app altındaki dosyaları sunucunuza kopyalayın. 
+komut satırı üzerinden kopyaladığınız dizine girerek uygulamayı çalıştırın.
+ardından cpu atayacağınız uygulamanın path'ini girin.
+daha sonra değeri seçin ve uygulamanın çalışmasnı bekleyin.
